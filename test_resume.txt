@@ -1,0 +1,1 @@
+Meda Geethika. Python, Pandas, NumPy, Scikit-learn, React.js, FastAPI, SQL, Docker, Git, REST API.

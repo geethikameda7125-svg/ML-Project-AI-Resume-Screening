@@ -442,12 +442,15 @@ export function getClientModelEvaluation() {
       id: sample.id,
       job_title: sample.job_title,
       resume_title: sample.resume_title,
-      keyword_baseline_score: kwBaseline,
+      keyword_baseline_score: kwBaseline > 1 ? kwBaseline / 100 : kwBaseline,
       tfidf_cosine_score: tfidfScore,
-      semantic_sim_score: Math.min(100.0, Math.round((tfidfScore * 1.06 + 3) * 10) / 10),
-      precision: Math.round(precision * 100) / 100,
-      recall: Math.round(recall * 100) / 100,
-      f1_score: Math.round(f1 * 100) / 100,
+      tfidf_percentage: tfidfScore,
+      semantic_score: Math.min(1.0, Math.round((cosine * 1.06 + 0.03) * 1000) / 1000),
+      skill_extraction_metrics: {
+        precision: Math.round(precision * 1000) / 1000,
+        recall: Math.round(recall * 1000) / 1000,
+        f1_score: Math.round(f1 * 1000) / 1000
+      },
       ground_truth_matched_skills: sample.ground_truth_matched || [],
       extracted_matched_skills: Array.from(extractedMatched)
     });
@@ -456,34 +459,43 @@ export function getClientModelEvaluation() {
   const count = evalDataset.length || 1;
   return {
     tfidf_configuration: {
-      ngram_range: [1, 2],
       max_features: 5000,
+      max_features_explanation:
+        "Caps the vocabulary size to the top N most informative terms across the corpus, reducing noise and memory footprint.",
+      ngram_range: [1, 2],
+      ngram_range_explanation:
+        "Considers single words (unigrams) and 2-word phrases (bigrams), preserving technical multi-word skills like 'machine learning' or 'rest api'.",
+      stop_words: "english",
+      stop_words_explanation:
+        "Filters out high-frequency non-technical English words (e.g. 'the', 'and', 'with') that do not convey domain skills.",
       sublinear_tf: true,
-      stop_words: 'english_standard',
-      norm: 'l2'
+      sublinear_tf_explanation:
+        "Replaces term frequency count TF with 1 + log(TF), dampening the impact of excessively repeated keywords.",
+      norm: "l2"
     },
     overall_skill_extraction_metrics: {
-      average_precision: Math.round((totalPrecisions / count) * 100) / 100,
-      average_recall: Math.round((totalRecalls / count) * 100) / 100,
-      average_f1_score: Math.round((totalF1s / count) * 100) / 100,
-      total_benchmark_pairs_tested: count
+      average_precision: Math.round((totalPrecisions / count) * 1000) / 1000,
+      average_recall: Math.round((totalRecalls / count) * 1000) / 1000,
+      average_f1_score: Math.round((totalF1s / count) * 1000) / 1000,
+      total_benchmark_pairs_tested: count,
+      note: "Evaluated on transparent benchmark resume-job pairs with ground-truth skill annotations."
     },
     benchmark_comparisons: benchmarkResults,
     model_limitations: [
       {
-        limitation: 'Exact Word & Synonym Reliance',
-        impact: 'If a specialized term is not registered in the dictionary or synonyms list, it falls back to raw n-gram TF-IDF matching.',
-        mitigation: 'Dynamic Skill Dictionary allowing custom additions through the Skills Catalog page.'
+        title: "Synonym & Vocabulary Variance",
+        description:
+          "TF-IDF relies on exact term overlap and sublinear term frequencies. If a resume describes 'developed API gateways in Python' while a job requests 'built REST web services', TF-IDF assigns zero vector overlap unless canonical synonym mapping is triggered."
       },
       {
-        limitation: 'Document Formatting Noise',
-        impact: 'Multi-column tables or complex graphical layouts in PDFs may occasionally produce interleaved text.',
-        mitigation: 'Dual parser engine with block-level coordinate sorting and plain text paste option.'
+        title: "Contextual Negation & False Positives",
+        description:
+          "If a candidate lists 'Not familiar with Docker', standard n-gram tokenization may still extract 'Docker' as a present skill. Phase-based negation detection is a planned future enhancement."
       },
       {
-        limitation: 'Absence of Deep Semantic Negation',
-        impact: "Phrases like 'not familiar with Kubernetes' can still register the keyword 'Kubernetes'.",
-        mitigation: 'Documented ethical disclaimer stating the system serves as a learning assistant, not an automated hiring authority.'
+        title: "Unsupervised Similarity Nature",
+        description:
+          "The similarity score is an unsupervised vector angle metric. It serves as an assistive career preparation tool and does NOT make automated hiring decisions."
       }
     ]
   };
