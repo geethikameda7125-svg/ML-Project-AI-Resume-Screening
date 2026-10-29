@@ -1,6 +1,11 @@
 import os
 import shutil
 import subprocess
+import stat
+
+def remove_readonly(func, path, excinfo):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
 
 def publish():
     repo_dir = r"C:\Users\geeth\.gemini\antigravity\scratch\ai-resume-job-matcher"
@@ -8,7 +13,7 @@ def publish():
     temp_dir = r"C:\Users\geeth\.gemini\antigravity\scratch\gh_pages_temp"
     
     if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+        shutil.rmtree(temp_dir, onerror=remove_readonly)
         
     os.makedirs(temp_dir, exist_ok=True)
     
