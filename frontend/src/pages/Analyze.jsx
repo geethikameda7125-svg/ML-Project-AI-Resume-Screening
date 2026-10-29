@@ -14,6 +14,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { api } from '../services/api';
+import { parseDocument } from '../utils/documentParser';
 import SimilarityGauge from '../components/SimilarityGauge';
 import SkillBadge from '../components/SkillBadge';
 import ChecklistTable from '../components/ChecklistTable';
@@ -53,20 +54,29 @@ export default function Analyze() {
     
     setSelectedFile(file);
     setUploading(true);
-    setUploadStatus('Processing document & sanitizing PII...');
+    setUploadStatus('Extracting text & sanitizing PII...');
     setErrorMsg('');
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const res = await api.uploadResume(formData);
-      setUploadedResumeId(res.data.id);
-      setUploadStatus(`File '${file.name}' uploaded successfully (${res.data.character_count} chars).`);
+      // 1. Client-side extraction (PDF, DOCX, TXT)
+      const parsed = await parseDocument(file);
+      setResumeText(parsed.sanitized_text);
+      setUploadStatus(`File '${file.name}' accepted & parsed successfully (${parsed.character_count} chars). Sensitive PII masked.`);
+
+      // 2. Background attempt to notify backend if available
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.uploadResume(formData);
+        if (res.data?.id) {
+          setUploadedResumeId(res.data.id);
+        }
+      } catch (backendErr) {
+        // Safe to ignore if backend is offline on static hosts
+      }
     } catch (err) {
-      console.error("Upload error:", err);
-      const detail = err.response?.data?.detail || "Document upload failed.";
-      setErrorMsg(detail);
+      console.error("Document parsing error:", err);
+      setErrorMsg(err.message || "Document upload failed. Please copy & paste your resume text.");
       setUploadStatus('');
     } finally {
       setUploading(false);
@@ -90,7 +100,7 @@ export default function Analyze() {
 
     const payload = {
       resume_id: uploadedResumeId || null,
-      resume_text: uploadedResumeId ? null : resumeText,
+      resume_text: resumeText,
       job_title: jobTitle,
       company_name: companyName,
       job_text: jobText

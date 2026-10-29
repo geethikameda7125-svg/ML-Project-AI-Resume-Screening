@@ -12,6 +12,8 @@
     "axios": "^1.6.8",
     "clsx": "^2.1.0",
     "lucide-react": "^0.354.0",
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.12.3",
